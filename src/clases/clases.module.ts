@@ -1,0 +1,20 @@
+import { Module } from '@nestjs/common';
+import { ClasesController } from './clases.controller';
+import { ClasesService } from './clases.service';
+import { CLASE_REPOSITORY } from './clases.tokens';
+import { ClasePrismaRepository } from './infra/clase-prisma.repository';
+import { PrismaService } from 'src/prisma/prisma.service';
+
+@Module({
+  controllers: [ClasesController],
+  providers: [
+    ClasesService,
+    PrismaService,
+    {
+      provide: CLASE_REPOSITORY,
+      useClass: ClasePrismaRepository,
+  
+    },
+  ],
+})
+export class ClasesModule {}
