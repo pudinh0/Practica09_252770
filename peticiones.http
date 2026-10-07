@@ -196,3 +196,112 @@ Origin: http://localhost:5173
 ### Prueba 4 (CORS con origen no permitido)
 GET http://localhost:3000/clases
 Origin: https://sitio-malicioso-externo.com
+
+### ================================================================
+### PRÁCTICA 10 - Blindar la API, JWT y OpenAPI
+### ================================================================
+
+### --- PARTE 1: BLINDAR LA API ---
+
+### Primera inscripción
+POST {{host}}/inscripciones
+Content-Type: application/json
+
+{ "horarioId": 1, "miembroId": 1 }
+
+### Segunda inscripción
+POST {{host}}/inscripciones
+Content-Type: application/json
+
+{ "horarioId": 1, "miembroId": 2 }
+
+### P1.1. Error de dominio traducido a 409 (CupoLlenoError con la nueva estructura JSON)
+POST {{host}}/inscripciones
+Content-Type: application/json
+
+{ "horarioId": 1, "miembroId": 3 }
+
+
+### P1.2. Petición que regresa el encabezado X-Request-Id
+GET {{host}}/clases
+
+
+### P1.3. Pruebas de CORS - Origen permitido (http://localhost:5173)
+GET {{host}}/clases
+Origin: http://localhost:5173
+
+
+### P1.4. Pruebas de CORS - Origen no permitido (http://localhost:4000 o sitio externo)
+GET {{host}}/clases
+Origin: http://localhost:4000
+
+
+### --- PARTE 2: AUTENTICACIÓN JWT Y OPENAPI ---
+
+### P2.1. Intentar acceder a una ruta protegida SIN token -> 401 Unauthorized
+GET {{host}}/inscripciones
+
+
+### P2.2. Iniciar sesión como Administrador -> 200 OK (Devuelve el access_token)
+# @name loginAdmin
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "admin@itson.mx",
+  "password": "gimnasio2026"
+}
+
+
+### P2.3. Iniciar sesión como Miembro (Karla) -> 200 OK
+# @name loginKarla
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "karla@itson.mx",
+  "password": "gimnasio2026"
+}
+
+
+### P2.4. Probar la ruta /auth/yo usando el token del Admin
+# (REST Client guarda automáticamente el token de la petición anterior si usas variables, 
+# o puedes copiar el "access_token" del login de arriba y pegarlo aquí abajo)
+GET {{host}}/auth/yo
+Authorization: Bearer {{loginAdmin.response.body.access_token}}
+
+
+### P2.5. REGLA DE NEGOCIO: Un miembro se inscribe a sí mismo -> 201 Created
+# (Usando el token de Karla, miembroId: 1, inscribiéndose a sí misma)
+POST {{host}}/inscripciones
+Authorization: Bearer {{loginKarla.response.body.access_token}}
+Content-Type: application/json
+
+{
+  "horarioId": 2,
+  "miembroId": 1
+}
+
+
+### P2.6. REGLA DE NEGOCIO: Un miembro intenta inscribir a otra persona -> 403 Forbidden
+# (Karla intentando inscribir al miembroId: 3, lo cual debe bloquearse con 403)
+POST {{host}}/inscripciones
+Authorization: Bearer {{loginKarla.response.body.access_token}}
+Content-Type: application/json
+
+{
+  "horarioId": 2,
+  "miembroId": 3
+}
+
+
+### P2.7. Registrar una nueva cuenta de usuario -> 201 Created
+POST {{host}}/auth/registro
+Content-Type: application/json
+
+{
+  "correo": "sofia@itson.mx",
+  "password": "gimnasio2026",
+  "rol": "miembro",
+  "miembroId": 3
+}

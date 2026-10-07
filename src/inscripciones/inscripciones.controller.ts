@@ -9,14 +9,16 @@ import {
   Param,
   Post,
   Res,
-} from '@nestjs/common';
-import type { Response } from 'express';
-import { InscripcionesService } from './inscripciones.service';
-import { CrearInscripcionDto } from './dto/crear-inscripcion.dto';
-import { aInscripcionDto } from './dto/inscripcion-respuesta.dto';
+  ForbiddenException,
+} from "@nestjs/common";
+import type { Response } from "express";
+import { InscripcionesService } from "./inscripciones.service";
+import { CrearInscripcionDto } from "./dto/crear-inscripcion.dto";
+import { aInscripcionDto } from "./dto/inscripcion-respuesta.dto";
+import { Rol, type PayloadJwt } from "../auth/dominio/usuario";
+import { UsuarioActual } from "src/auth/decoradores/usuario-actual.decorator";
 
-
-@Controller('inscripciones')
+@Controller("inscripciones")
 export class InscripcionesController {
   constructor(private readonly servicio: InscripcionesService) {}
 
@@ -26,8 +28,8 @@ export class InscripcionesController {
     return lista.map(aInscripcionDto);
   }
 
-  @Get(':id')
-  async buscar(@Param('id') id: string) {
+  @Get(":id")
+  async buscar(@Param("id") id: string) {
     const inscripcion = await this.servicio.buscar(Number(id));
     if (!inscripcion) {
       throw new NotFoundException(`No existe la inscripcion ${id}`);
@@ -35,28 +37,31 @@ export class InscripcionesController {
     return aInscripcionDto(inscripcion);
   }
 
+  // Se borro el try/catch con los cuatro instanceof y los imports de los
+  // errores. Si el Service lanza CupoLlenoError, el error sale de aqui y
+  // el filtro lo convierte en 409.
   @Post()
   @HttpCode(201)
   async crear(
     @Body() dto: CrearInscripcionDto,
     @Res({ passthrough: true }) res: Response,
+    @UsuarioActual() usuario: PayloadJwt,
   ) {
-
-    if (!Number.isInteger(dto?.horarioId) || !Number.isInteger(dto?.miembroId)) {
-      throw new BadRequestException(
-        'horarioId y miembroId son obligatorios y deben ser numeros enteros',
-      );
+    // Quien eres lo dice el TOKEN, no el cuerpo.
+    // Un miembro solo puede inscribirse a si mismo...
+    if (usuario.rol === Rol.miembro && usuario.miembroId !== dto.miembroId) {
+      // ...si intenta inscribir a otro: 403 (se quien eres y no puedes).
+      throw new ForbiddenException("Solo puedes inscribirte a ti mismo");
     }
 
-    
-   const inscripcion = await this.servicio.crear(dto);
-   res.setHeader('Location', `/inscripciones/${inscripcion.id}`);
-   return aInscripcionDto(inscripcion);
-    
+    // El entrenador y el admin si pueden inscribir a cualquiera.
+    const inscripcion = await this.servicio.crear(dto);
+    res.setHeader("Location", `/inscripciones/${inscripcion.id}`);
+    return aInscripcionDto(inscripcion);
   }
 
-  @Delete(':id')
-  async cancelar(@Param('id') id: string) {
+  @Delete(":id")
+  async cancelar(@Param("id") id: string) {
     const cancelada = await this.servicio.cancelar(Number(id));
     if (!cancelada) {
       throw new NotFoundException(`No existe la inscripcion ${id}`);

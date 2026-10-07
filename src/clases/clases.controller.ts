@@ -12,6 +12,7 @@ import {
 import { ClasesService } from './clases.service';
 import { CrearClaseDto } from './dto/crear-clase.dto';
 import { ActualizarClaseDto } from './dto/actualizar-clase.dto';
+import { Publico } from 'src/auth/decoradores/publico.decorator';
 
 @Controller('clases')
 export class ClasesController {
@@ -19,6 +20,7 @@ export class ClasesController {
 
 
   @Get()
+  @Publico()
   listar() {
     return this.clasesService.listar();
   }
